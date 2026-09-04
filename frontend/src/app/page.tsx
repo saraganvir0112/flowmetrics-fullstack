@@ -198,7 +198,7 @@ export default function Home() {
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   <span>API Online & Healthy</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono">
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px] uppercase">Service</span>
                     <span className="text-slate-200 font-semibold">{health.service}</span>
@@ -206,6 +206,12 @@ export default function Home() {
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px] uppercase">Status</span>
                     <span className="text-emerald-400 font-semibold">{health.status}</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px] uppercase">Database</span>
+                    <span className={`font-semibold ${health.database === 'connected' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {health.database}
+                    </span>
                   </div>
                   <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px] uppercase">Environment</span>

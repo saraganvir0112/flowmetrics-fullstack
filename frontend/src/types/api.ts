@@ -27,11 +27,14 @@ export interface ApiErrorResponse {
 
 export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse;
 
+export type DatabaseConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disconnecting';
+
 export interface HealthCheckData {
   status: 'ok' | 'degraded' | 'error';
   service: string;
   version: string;
   environment: string;
   uptime: number;
+  database: DatabaseConnectionStatus;
   timestamp: string;
 }

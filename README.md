@@ -26,7 +26,7 @@ flowmetrics-fullstack/
 │
 ├── backend/                    # Express + Node.js API (Server)
 │   ├── src/
-│   │   ├── config/             # Environment configuration and validation
+│   │   ├── config/             # Environment & Mongoose database configuration
 │   │   ├── controllers/        # Route handlers (future milestones)
 │   │   ├── middleware/         # Error handler, auth & rate limiting
 │   │   ├── models/             # Mongoose schemas (future milestones)
@@ -73,11 +73,46 @@ flowmetrics-fullstack/
 
 ---
 
+## 🗄️ Database Foundation & Architecture (Milestone 2)
+
+Flowmetrics utilizes **MongoDB Atlas** with **Mongoose** as the Object-Document Mapper (ODM). The database connection layer provides:
+
+1. **Connection Pooling & Reuse**: Checks `mongoose.connection.readyState` before attempting connections, avoiding duplicate socket creation.
+2. **Server Timeout Controls**: Configured with `serverSelectionTimeoutMS: 5000` to quickly fail on unreachable networks rather than hanging indefinitely.
+3. **Strict Validation**: Requires `MONGODB_URI` via Zod at startup.
+4. **Sanitized Telemetry**: Health checks and logs surface connection host and database names without ever printing credentials or connection strings.
+5. **Graceful Lifecycle Management**: Listens for `SIGINT` and `SIGTERM`, stopping HTTP traffic before disconnecting Mongoose.
+
+### Backend Startup Pipeline
+
+```
+┌────────────────────────────────┐
+│ 1. Environment Validation (Zod)│
+└───────────────┬────────────────┘
+                ▼
+┌────────────────────────────────┐
+│ 2. Mongoose Database Connect   │ ──(Failure)──► Log Error & Exit Process (Code 1)
+└───────────────┬────────────────┘
+                ▼ (Success)
+┌────────────────────────────────┐
+│ 3. Create Express App Factory  │
+└───────────────┬────────────────┘
+                ▼
+┌────────────────────────────────┐
+│ 4. Start HTTP Server (Port 5000│
+└────────────────────────────────┘
+```
+
+> **Note**: The HTTP server will intentionally fail to start if the database connection cannot be established, preventing inconsistent or zombie server processes.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 - **Node.js**: v18.0.0 or higher (v24+ supported)
 - **npm**: v9.0.0 or higher
+- **MongoDB Atlas** cluster (or local MongoDB URI)
 
 ### 1. Installation
 Install all dependencies across the workspace from the root:
@@ -103,12 +138,12 @@ cp backend/.env.example backend/.env
 | `NEXT_PUBLIC_API_URL` | Backend API base URL | `http://localhost:5000/api` |
 
 #### Backend Variables (`backend/.env`)
-| Variable | Description | Default |
+| Variable | Description | Example |
 | :--- | :--- | :--- |
 | `PORT` | API server listening port | `5000` |
 | `NODE_ENV` | Runtime environment | `development` |
 | `CLIENT_URL` | Frontend origin for CORS | `http://localhost:3000` |
-| `MONGODB_URI` | MongoDB Atlas connection string | `mongodb+srv://...` |
+| `MONGODB_URI` | **Required** MongoDB Atlas connection string | `mongodb+srv://<user>:<password>@cluster0.mongodb.net/flowmetrics?retryWrites=true&w=majority` |
 | `JWT_SECRET` | Secret key for signing JWT tokens | `development_jwt_secret` |
 
 ### 3. Run Development Servers
@@ -123,6 +158,35 @@ npm run dev:backend
 
 # Run only the frontend app (http://localhost:3000)
 npm run dev:frontend
+```
+
+---
+
+## 🔍 System Health Check Verification
+
+The backend exposes an operational health probe at `GET /api/health` with real-time database connectivity:
+
+```bash
+curl http://localhost:5000/api/health
+```
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok",
+    "service": "flowmetrics-api",
+    "version": "0.1.0",
+    "environment": "development",
+    "uptime": 42,
+    "database": "connected",
+    "timestamp": "2026-09-04T17:30:00.000Z"
+  },
+  "meta": {
+    "timestamp": "2026-09-04T17:30:00.000Z"
+  }
+}
 ```
 
 ---
@@ -145,9 +209,10 @@ npm run dev:frontend
 ## 📋 Development Roadmap & Milestones
 
 - [x] **Milestone 1**: Repository architecture, workspace setup, TypeScript config, health check endpoint, minimal Next.js foundation, shared conventions.
-- [ ] **Milestone 2**: Database connection (MongoDB Atlas/Mongoose), user/admin schemas, JWT authentication, and role authorization middleware.
-- [ ] **Milestone 3**: Dynamic Pricing Plans model, validation, public read API, and admin CRUD endpoints with rate limiting.
-- [ ] **Milestone 4**: Blog posts model (featured flag, draft/published status, slug routes), TipTap editor integration, public vs admin endpoints.
-- [ ] **Milestone 5**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
-- [ ] **Milestone 6**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
-- [ ] **Milestone 7**: Production readiness, deployment setup (Vercel + Render), and final polish.
+- [x] **Milestone 2**: Production MongoDB foundation (Mongoose connection pooling, strict Zod URI validation, lifecycle handling, enhanced health probe).
+- [ ] **Milestone 3**: Database models (User/Admin, PricingPlan, BlogPost), JWT authentication, and role authorization middleware.
+- [ ] **Milestone 4**: Dynamic Pricing Plans CRUD & nested feature list, public read-only vs admin endpoints.
+- [ ] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration.
+- [ ] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
+- [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
+- [ ] **Milestone 8**: Production deployment setup (Vercel + Render), and final polish.
