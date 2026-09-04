@@ -12,7 +12,19 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   CLIENT_URL: z.string().default('http://localhost:3000'),
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
-  JWT_SECRET: z.string().default('development_jwt_secret'),
+  JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters long'),
+  ADMIN_EMAIL: z.string().email('ADMIN_EMAIL must be a valid email address').default('admin@flowmetrics.dev'),
+  ADMIN_PASSWORD: z.string().min(8, 'ADMIN_PASSWORD must be at least 8 characters long'),
+  AUTH_RATE_LIMIT_MAX: z
+    .string()
+    .default('10')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().positive('AUTH_RATE_LIMIT_MAX must be a positive integer')),
+  AUTH_RATE_LIMIT_WINDOW_MS: z
+    .string()
+    .default('900000') // 15 minutes
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().positive('AUTH_RATE_LIMIT_WINDOW_MS must be a positive integer')),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

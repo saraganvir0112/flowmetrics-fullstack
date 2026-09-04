@@ -27,11 +27,15 @@ flowmetrics-fullstack/
 ├── backend/                    # Express + Node.js API (Server)
 │   ├── src/
 │   │   ├── config/             # Environment & Mongoose database configuration
-│   │   ├── controllers/        # Route handlers (future milestones)
-│   │   ├── middleware/         # Error handler, auth & rate limiting
-│   │   ├── models/             # Mongoose schemas (future milestones)
+│   │   ├── controllers/        # Route handlers (auth, future pricing & blog)
+│   │   ├── middleware/         # Error handler, auth, role & rate limiting
+│   │   ├── models/             # Mongoose schemas (User, future Pricing & Blog)
 │   │   ├── routes/             # Express API routes
+│   │   ├── schemas/            # Zod validation schemas
+│   │   ├── scripts/            # Seed and verification scripts
+│   │   ├── services/           # Business logic layer
 │   │   ├── types/              # Backend TypeScript interfaces & contracts
+│   │   ├── utils/              # JWT and cryptography helpers
 │   │   ├── app.ts              # Express application factory
 │   │   └── server.ts           # Server entrypoint and lifecycle
 │   ├── .env.example            # Backend environment variables template
@@ -63,8 +67,9 @@ flowmetrics-fullstack/
 - **Framework**: Express
 - **Language**: TypeScript
 - **Database / ODM**: MongoDB Atlas, Mongoose
+- **Authentication**: JWT, bcryptjs
 - **Validation**: Zod
-- **Security & Rate Limiting**: Express-rate-limit, CORS, bcrypt, JWT
+- **Security & Rate Limiting**: express-rate-limit, CORS
 
 ### Deployment Targets
 - **Frontend**: Vercel
@@ -73,37 +78,40 @@ flowmetrics-fullstack/
 
 ---
 
-## 🗄️ Database Foundation & Architecture (Milestone 2)
+## 🔐 Authentication & Role Authorization (Milestone 3)
 
-Flowmetrics utilizes **MongoDB Atlas** with **Mongoose** as the Object-Document Mapper (ODM). The database connection layer provides:
+Flowmetrics implements a secure authentication and role-based authorization system tailored for B2B SaaS management:
 
-1. **Connection Pooling & Reuse**: Checks `mongoose.connection.readyState` before attempting connections, avoiding duplicate socket creation.
-2. **Server Timeout Controls**: Configured with `serverSelectionTimeoutMS: 5000` to quickly fail on unreachable networks rather than hanging indefinitely.
-3. **Strict Validation**: Requires `MONGODB_URI` via Zod at startup.
-4. **Sanitized Telemetry**: Health checks and logs surface connection host and database names without ever printing credentials or connection strings.
-5. **Graceful Lifecycle Management**: Listens for `SIGINT` and `SIGTERM`, stopping HTTP traffic before disconnecting Mongoose.
-
-### Backend Startup Pipeline
+### 1. Dual-Layer Route Protection
+- **`authenticate` middleware**: Extracts Bearer token from `Authorization` header, verifies the signature using `JWT_SECRET`, decodes the payload, and attaches `req.user`. Missing or invalid tokens return **HTTP 401**.
+- **`requireAdmin` middleware**: Verifies `req.user.role === 'admin'`. A valid JWT alone **never** grants administrative privileges. Non-admin users are rejected with **HTTP 403**.
 
 ```
-┌────────────────────────────────┐
-│ 1. Environment Validation (Zod)│
-└───────────────┬────────────────┘
-                ▼
-┌────────────────────────────────┐
-│ 2. Mongoose Database Connect   │ ──(Failure)──► Log Error & Exit Process (Code 1)
-└───────────────┬────────────────┘
-                ▼ (Success)
-┌────────────────────────────────┐
-│ 3. Create Express App Factory  │
-└───────────────┬────────────────┘
-                ▼
-┌────────────────────────────────┐
-│ 4. Start HTTP Server (Port 5000│
-└────────────────────────────────┘
+Request ──► authenticate (JWT check) ──► requireAdmin (user.role === 'admin') ──► Controller
+                     │                                   │
+                 (Invalid)                           (Non-admin)
+                     ▼                                   ▼
+                 HTTP 401                            HTTP 403
 ```
 
-> **Note**: The HTTP server will intentionally fail to start if the database connection cannot be established, preventing inconsistent or zombie server processes.
+### 2. Password & Token Security
+- **Bcrypt Hashing**: Passwords hashed using `bcryptjs` with salt cost factor 10.
+- **Zero Leakage**: `passwordHash` has `select: false` on the User schema and is stripped by default.
+- **Lean JWTs**: JWT payloads only contain `{ userId, email, role }`. Passwords and hashes are never embedded in tokens.
+- **Timing & Enumeration Resistance**: `POST /api/auth/login` returns a generic `"Invalid email or password"` error regardless of whether the email exists.
+
+### 3. Rate Limiting Protection
+- `POST /api/auth/login` is protected by `authRateLimiter` (`express-rate-limit`).
+- Configurable window (`AUTH_RATE_LIMIT_WINDOW_MS`) and max requests (`AUTH_RATE_LIMIT_MAX`).
+- Exceeding the threshold returns **HTTP 429** (`TOO_MANY_REQUESTS`).
+
+### 4. Admin Seeding Utility
+Initialize the default administrator account for development or deployment:
+
+```bash
+npm run seed:admin
+```
+The script reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` from environment variables, safely hashes the password, and creates the admin record idempotently.
 
 ---
 
@@ -143,8 +151,12 @@ cp backend/.env.example backend/.env
 | `PORT` | API server listening port | `5000` |
 | `NODE_ENV` | Runtime environment | `development` |
 | `CLIENT_URL` | Frontend origin for CORS | `http://localhost:3000` |
-| `MONGODB_URI` | **Required** MongoDB Atlas connection string | `mongodb+srv://<user>:<password>@cluster0.mongodb.net/flowmetrics?retryWrites=true&w=majority` |
-| `JWT_SECRET` | Secret key for signing JWT tokens | `development_jwt_secret` |
+| `MONGODB_URI` | **Required** MongoDB connection string | `mongodb+srv://...` |
+| `JWT_SECRET` | **Required** Secret key for signing JWTs (min 16 chars) | `super_secret_jwt_key_at_least_16_chars` |
+| `ADMIN_EMAIL` | Administrator account email | `admin@flowmetrics.dev` |
+| `ADMIN_PASSWORD` | **Required** Administrator initial password (min 8 chars) | `AdminSecurePass123!` |
+| `AUTH_RATE_LIMIT_MAX` | Max login attempts per window | `10` |
+| `AUTH_RATE_LIMIT_WINDOW_MS` | Rate limit window in milliseconds | `900000` (15m) |
 
 ### 3. Run Development Servers
 You can run both applications concurrently or independently from the root directory:
@@ -162,32 +174,42 @@ npm run dev:frontend
 
 ---
 
-## 🔍 System Health Check Verification
+## 📡 API Reference
 
-The backend exposes an operational health probe at `GET /api/health` with real-time database connectivity:
+### Public Endpoints
+- `GET /api/health` - Operational health check reporting system & database connectivity.
+- `POST /api/auth/login` - Rate-limited admin login endpoint.
 
-```bash
-curl http://localhost:5000/api/health
+**Login Request:**
+```json
+{
+  "email": "admin@flowmetrics.dev",
+  "password": "AdminSecurePass123!"
+}
 ```
 
-**Response Format:**
+**Login Response (HTTP 200):**
 ```json
 {
   "success": true,
   "data": {
-    "status": "ok",
-    "service": "flowmetrics-api",
-    "version": "0.1.0",
-    "environment": "development",
-    "uptime": 42,
-    "database": "connected",
-    "timestamp": "2026-09-04T17:30:00.000Z"
+    "user": {
+      "id": "65e6a123...",
+      "name": "System Admin",
+      "email": "admin@flowmetrics.dev",
+      "role": "admin"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "meta": {
-    "timestamp": "2026-09-04T17:30:00.000Z"
+    "timestamp": "2026-09-04T18:00:00.000Z"
   }
 }
 ```
+
+### Protected Endpoints
+- `GET /api/auth/me` - Requires `authenticate` header (`Authorization: Bearer <token>`). Returns the authenticated profile.
+- `GET /api/auth/admin-test` - Requires `authenticate` and `requireAdmin`. Returns 200 for admins, 403 for non-admins.
 
 ---
 
@@ -202,6 +224,8 @@ curl http://localhost:5000/api/health
 | `npm run build:frontend` | Builds the Next.js production bundle |
 | `npm run build:backend` | Compiles backend TypeScript to `./backend/dist` |
 | `npm run typecheck` | Validates TypeScript types across both frontend and backend |
+| `npm run seed:admin` | Seeds initial administrator account using environment credentials |
+| `npm run test:auth` | Runs the automated authentication & authorization test suite |
 | `npm run lint` | Runs ESLint across all workspaces |
 
 ---
@@ -210,8 +234,8 @@ curl http://localhost:5000/api/health
 
 - [x] **Milestone 1**: Repository architecture, workspace setup, TypeScript config, health check endpoint, minimal Next.js foundation, shared conventions.
 - [x] **Milestone 2**: Production MongoDB foundation (Mongoose connection pooling, strict Zod URI validation, lifecycle handling, enhanced health probe).
-- [ ] **Milestone 3**: Database models (User/Admin, PricingPlan, BlogPost), JWT authentication, and role authorization middleware.
-- [ ] **Milestone 4**: Dynamic Pricing Plans CRUD & nested feature list, public read-only vs admin endpoints.
+- [x] **Milestone 3**: Secure admin authentication & role-based authorization (bcryptjs, JWT, separate `authenticate` & `requireAdmin` middlewares, login rate limiting, admin seed script).
+- [ ] **Milestone 4**: Dynamic Pricing Plans CRUD & nested feature list, public read-only vs admin endpoints with rate limiting.
 - [ ] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration.
 - [ ] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
 - [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
