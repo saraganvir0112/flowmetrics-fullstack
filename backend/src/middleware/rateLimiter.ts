@@ -49,3 +49,27 @@ export const planWriteRateLimiter = rateLimit({
     res.status(429).json(errorResponse);
   },
 });
+
+/**
+ * Rate limiter middleware protecting blog write endpoints (create, update, delete).
+ * Returns consistent JSON response with HTTP 429 status code.
+ */
+export const blogWriteRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60, // 60 writes per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    const errorResponse: ApiErrorResponse = {
+      success: false,
+      error: {
+        message: 'Too many blog write requests. Please try again later.',
+        code: 'TOO_MANY_REQUESTS',
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+    res.status(429).json(errorResponse);
+  },
+});

@@ -136,6 +136,53 @@ PUBLIC CLIENTS                              ADMINISTRATORS
 
 ---
 
+---
+
+## 📝 Dynamic Blog Domain & TipTap Editor (Milestone 5)
+
+Flowmetrics includes a complete editorial blog CMS with draft/published lifecycles, prioritized featured posts, URL slug resolution, rich-text editing via TipTap, and dual-layer defense-in-depth HTML sanitization.
+
+### Data Model (`BlogPost`)
+
+| Field | Type | Validation / Constraints |
+| :--- | :--- | :--- |
+| `title` | String | Required, trimmed, max 180 chars |
+| `slug` | String | Required, unique index, lowercase alphanumeric with hyphens (`/^[a-z0-9]+(?:-[a-z0-9]+)*$/`), max 200 chars |
+| `excerpt` | String | Required, trimmed, max 300 chars |
+| `content` | String | Required, sanitized rich HTML, max 50,000 chars |
+| `featured` | Boolean | Strict boolean (`true \| false`), default `false`, indexed |
+| `status` | Enum | `'published' \| 'draft'`, default `'draft'`, indexed |
+| `tags` | `string[]` | Array of trimmed strings (max 10 tags, 30 chars each) |
+| `coverImage` | String | Optional URL string |
+| `authorName` | String | Required, default `'Flowmetrics Team'`, max 80 chars |
+| `authorAvatar` | String | Optional URL string |
+| `publishedAt` | Date | Assigned automatically on first publish; indexed |
+| `createdAt` | Date | Managed timestamp |
+| `updatedAt` | Date | Managed timestamp |
+
+### Compound Indexing & Query Prioritization
+- **Public Feed Query**:
+  ```ts
+  BlogPost.find({ status: 'published' }).sort({ featured: -1, publishedAt: -1, createdAt: -1 })
+  ```
+  Featured published posts are always prioritized at the top of the public feed, followed by the newest published articles.
+- **Strict Isolation**: Drafts are completely hidden from public queries (`{ status: 'published' }`). A draft slug requested on `GET /api/blog/:slug` returns **HTTP 404 Not Found**.
+
+### Defense-in-Depth HTML Sanitization
+Flowmetrics employs double-layer sanitization powered by `sanitize-html` to protect against Cross-Site Scripting (XSS):
+1. **Backend Pre-Persistence Sanitization**: Before persisting to MongoDB on `POST /api/blog` or `PUT /api/blog/:id`, all HTML content is parsed through `sanitizeBlogContent()`. All `<script>` tags, inline event handlers (`onclick`, `onerror`, `onload`), `javascript:` URI schemes, and dangerous tags (`iframe`, `object`, `embed`) are stripped.
+2. **Frontend Pre-Render Sanitization**: Before dangerously setting inner HTML in the public blog detail page (`/blog/[slug]`), the content is sanitized a second time on the client.
+
+### Route Disambiguation
+Admin blog endpoints are declared **before** the parameterized slug endpoint to eliminate wildcard collisions:
+```ts
+router.get('/admin/all', authenticate, requireAdmin, blogController.getAllPostsAdmin);
+router.get('/admin/:id', authenticate, requireAdmin, blogController.getPostByIdAdmin);
+router.get('/:slug', blogController.getPostBySlug);
+```
+
+---
+
 ## 📡 API Reference
 
 ### Public Endpoints
@@ -143,6 +190,8 @@ PUBLIC CLIENTS                              ADMINISTRATORS
 - `POST /api/auth/login` - Rate-limited admin login endpoint.
 - `GET /api/plans` - Returns all published pricing plans (sorted by price ascending).
 - `GET /api/plans/:id` - Returns a single published pricing plan (returns 404 for draft plans).
+- `GET /api/blog` - Returns all published blog posts (prioritizing `featured: true` first, then newest `publishedAt`).
+- `GET /api/blog/:slug` - Returns a single published blog post by slug (returns 404 for draft posts or non-existent slugs).
 
 ### Protected Endpoints
 - `GET /api/auth/me` - Requires `authenticate`. Returns the authenticated profile.
@@ -151,51 +200,23 @@ PUBLIC CLIENTS                              ADMINISTRATORS
 - `POST /api/plans` - Requires `authenticate` and `requireAdmin`. Creates a new pricing plan (HTTP 201).
 - `PUT /api/plans/:id` - Requires `authenticate` and `requireAdmin`. Updates an existing pricing plan (HTTP 200).
 - `DELETE /api/plans/:id` - Requires `authenticate` and `requireAdmin`. Deletes a pricing plan (HTTP 200).
+- `GET /api/blog/admin/all` - Requires `authenticate` and `requireAdmin`. Returns all blog posts including drafts.
+- `GET /api/blog/admin/:id` - Requires `authenticate` and `requireAdmin`. Returns any blog post by its MongoDB ObjectId.
+- `POST /api/blog` - Requires `authenticate` and `requireAdmin`. Creates a new blog post with sanitized HTML (HTTP 201).
+- `PUT /api/blog/:id` - Requires `authenticate` and `requireAdmin`. Updates an existing blog post (HTTP 200).
+- `DELETE /api/blog/:id` - Requires `authenticate` and `requireAdmin`. Deletes a blog post (HTTP 200).
 
-#### Example: Create Pricing Plan (`POST /api/plans`)
+#### Example: Create Blog Post (`POST /api/blog`)
 ```json
 {
-  "name": "Scale Plan",
-  "price": 79,
-  "billingCycle": "month",
-  "description": "For growing engineering organizations",
-  "features": [
-    "Up to 50 team members",
-    "Real-time velocity tracking",
-    "Workload imbalance alerts",
-    "Custom exports & integrations",
-    "Priority support"
-  ],
-  "highlighted": true,
-  "status": "published"
-}
-```
-
-#### Example: Response (`HTTP 201 Created`)
-```json
-{
-  "success": true,
-  "data": {
-    "id": "65e6b1234567890123456789",
-    "name": "Scale Plan",
-    "price": 79,
-    "billingCycle": "month",
-    "description": "For growing engineering organizations",
-    "features": [
-      "Up to 50 team members",
-      "Real-time velocity tracking",
-      "Workload imbalance alerts",
-      "Custom exports & integrations",
-      "Priority support"
-    ],
-    "highlighted": true,
-    "status": "published",
-    "createdAt": "2026-09-04T18:15:00.000Z",
-    "updatedAt": "2026-09-04T18:15:00.000Z"
-  },
-  "meta": {
-    "timestamp": "2026-09-04T18:15:00.000Z"
-  }
+  "title": "Scaling Distributed Teams in 2026",
+  "slug": "scaling-distributed-teams-2026",
+  "excerpt": "Key practices and productivity metrics for high-performing remote engineering teams.",
+  "content": "<h2>Introduction</h2><p>Managing remote velocity requires actionable telemetry...</p>",
+  "featured": true,
+  "status": "published",
+  "tags": ["remote-work", "engineering", "productivity"],
+  "authorName": "Flowmetrics Team"
 }
 ```
 
@@ -215,6 +236,7 @@ PUBLIC CLIENTS                              ADMINISTRATORS
 | `npm run seed:admin` | Seeds initial administrator account using environment credentials |
 | `npm run test:auth` | Runs the automated authentication & authorization test suite |
 | `npm run test:pricing` | Runs the 17-point Pricing Plans CRUD automated verification suite |
+| `npm run test:blog` | Runs the 24-point Blog Domain & Publishing automated verification suite |
 | `npm run lint` | Runs ESLint across all workspaces |
 
 ---
@@ -225,7 +247,7 @@ PUBLIC CLIENTS                              ADMINISTRATORS
 - [x] **Milestone 2**: Production MongoDB foundation (Mongoose connection pooling, strict Zod URI validation, lifecycle handling, enhanced health probe).
 - [x] **Milestone 3**: Secure admin authentication & role-based authorization (bcryptjs, JWT, separate `authenticate` & `requireAdmin` middlewares, login rate limiting, admin seed script).
 - [x] **Milestone 4**: Complete Pricing Plans CRUD (Mongoose modeling, nested feature array, highlighted boolean, draft/published status filtering, public read endpoints, admin write endpoints with rate limiting).
-- [ ] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration.
+- [x] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration, double sanitization.
 - [ ] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
 - [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
 - [ ] **Milestone 8**: Production deployment setup (Vercel + Render), and final polish.
