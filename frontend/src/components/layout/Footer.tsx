@@ -36,10 +36,10 @@ export function Footer() {
     {
       title: 'Company',
       links: [
-        { label: 'About Flowmetrics', href: '#' },
-        { label: 'Security & Compliance', href: '#' },
-        { label: 'Privacy Policy', href: '#' },
-        { label: 'Terms of Service', href: '#' },
+        { label: 'About Flowmetrics', href: '#features' },
+        { label: 'Security & Compliance', href: '#features' },
+        { label: 'Privacy Policy', href: '#cta' },
+        { label: 'Terms of Service', href: '#cta' },
       ],
     },
   ];

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BlogPost } from '@/types/blog';
 import { authApiClient } from '@/lib/api';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import {
   FileText,
   Plus,
@@ -13,11 +14,9 @@ import {
   Edit,
   Trash2,
   Eye,
-  ArrowLeft,
   RefreshCw,
   AlertCircle,
   Tag,
-  LogOut,
 } from 'lucide-react';
 
 export default function AdminBlogPage() {
@@ -107,18 +106,13 @@ export default function AdminBlogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 p-6 md:p-10">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#070B14] text-slate-100 pb-16">
+      <AdminHeader onLogout={logout} />
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-800">
           <div>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors mb-2"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Overview</span>
-            </Link>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
               <FileText className="w-6 h-6 text-blue-400" />
               <span>Blog Management</span>
@@ -143,14 +137,6 @@ export default function AdminBlogPage() {
               <Plus className="w-4 h-4" />
               <span>New Article</span>
             </Link>
-            <button
-              onClick={logout}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-800/60 transition-colors text-xs cursor-pointer"
-              title="Sign out of Admin Portal"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign out</span>
-            </button>
           </div>
         </div>
 

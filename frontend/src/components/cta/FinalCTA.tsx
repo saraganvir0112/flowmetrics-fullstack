@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button';
 
 export function FinalCTA() {
   return (
-    <section className="py-24 md:py-32 bg-[#05080F] border-t border-[#1A2438] relative overflow-hidden">
+    <section id="cta" className="py-24 md:py-32 bg-[#05080F] border-t border-[#1A2438] relative overflow-hidden">
       {/* Subtle ambient lighting */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-r from-blue-600/15 via-teal-500/10 to-cyan-500/15 blur-[140px] pointer-events-none rounded-full" />
 

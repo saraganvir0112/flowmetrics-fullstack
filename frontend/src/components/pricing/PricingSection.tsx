@@ -191,14 +191,16 @@ export function PricingSection() {
 
                   {/* Plan CTA */}
                   <div className="pt-2">
-                    <Button
-                      variant={isHighlighted ? 'primary' : 'secondary'}
-                      size="md"
-                      className="w-full justify-center"
-                    >
-                      <span>Get started with {plan.name}</span>
-                      <ArrowRight className="w-4 h-4 ml-1" />
-                    </Button>
+                    <a href="#cta" className="block w-full">
+                      <Button
+                        variant={isHighlighted ? 'primary' : 'secondary'}
+                        size="md"
+                        className="w-full justify-center cursor-pointer"
+                      >
+                        <span>Get started with {plan.name}</span>
+                        <ArrowRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </a>
                   </div>
                 </div>
               );

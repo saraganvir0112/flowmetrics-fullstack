@@ -1,7 +1,13 @@
 import { ApiResponse } from '@/types/api';
 import { getAuthToken, clearAuthSession } from './authSession';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+    ? 'https://flowmetrics-fullstack.onrender.com/api'
+    : process.env.NODE_ENV === 'production'
+    ? 'https://flowmetrics-fullstack.onrender.com/api'
+    : 'http://localhost:5000/api');
 
 export class ApiError extends Error {
   public code?: string;

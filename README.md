@@ -6,6 +6,19 @@ Flowmetrics provides engineering and product teams with deep insights into workl
 
 ---
 
+## 🌐 Live Deployments & Production URLs
+
+- **Production Web Application (Vercel)**: [https://flowmetrics-fullstack-frontend.vercel.app](https://flowmetrics-fullstack-frontend.vercel.app)
+- **Production Backend API (Render)**: [https://flowmetrics-fullstack.onrender.com/api](https://flowmetrics-fullstack.onrender.com/api)
+- **API Health Check**: [https://flowmetrics-fullstack.onrender.com/api/health](https://flowmetrics-fullstack.onrender.com/api/health)
+- **Frontend Health Probe**: [https://flowmetrics-fullstack-frontend.vercel.app/api/health](https://flowmetrics-fullstack-frontend.vercel.app/api/health)
+- **Admin Workspace Portal**: [https://flowmetrics-fullstack-frontend.vercel.app/admin](https://flowmetrics-fullstack-frontend.vercel.app/admin)
+  - **Blog Management**: `/admin/blog`
+  - **Pricing Management**: `/admin/pricing`
+  - **Credentials**: Available in environment configuration (`ADMIN_EMAIL` / `ADMIN_PASSWORD`)
+
+---
+
 ## 🏗️ Repository Architecture
 
 This project is structured as an interview-friendly, production-ready monorepo using **npm workspaces**:
@@ -274,7 +287,7 @@ Flowmetrics features a polished, responsive B2B SaaS marketing website built wit
 - [x] **Milestone 3**: Secure admin authentication & role-based authorization (bcryptjs, JWT, separate `authenticate` & `requireAdmin` middlewares, login rate limiting, admin seed script).
 - [x] **Milestone 4**: Complete Pricing Plans CRUD (Mongoose modeling, nested feature array, highlighted boolean, draft/published status filtering, public read endpoints, admin write endpoints with rate limiting).
 - [x] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration, double sanitization.
-- [x] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
-- [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
-- [ ] **Milestone 8**: Production deployment setup (Vercel + Render), and final polish.
+- [x] **Milestone 7**: Admin dashboard portal (Pricing management with full CRUD, dynamic features checklist & status/highlight toggles, Blog management with TipTap rich text editor, draft/publish lifecycle).
+- [x] **Milestone 8**: Production deployment setup (Vercel + Render + MongoDB Atlas), automated verification suites, mobile responsiveness, and final compliance polish.
+
 
