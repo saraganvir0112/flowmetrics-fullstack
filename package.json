@@ -17,6 +17,7 @@
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "seed:admin": "npm run seed:admin --workspace=backend",
     "test:auth": "npm run test:auth --workspace=backend",
+    "test:pricing": "npm run test:pricing --workspace=backend",
     "lint": "npm run lint --workspaces"
   },
   "devDependencies": {

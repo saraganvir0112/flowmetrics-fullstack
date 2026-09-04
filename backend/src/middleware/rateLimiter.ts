@@ -25,3 +25,27 @@ export const authRateLimiter = rateLimit({
     res.status(429).json(errorResponse);
   },
 });
+
+/**
+ * Rate limiter middleware protecting write endpoints (plans creation, updates, deletes).
+ * Returns consistent JSON response with HTTP 429 status code.
+ */
+export const planWriteRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60, // 60 writes per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    const errorResponse: ApiErrorResponse = {
+      success: false,
+      error: {
+        message: 'Too many write requests. Please try again later.',
+        code: 'TOO_MANY_REQUESTS',
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      },
+    };
+    res.status(429).json(errorResponse);
+  },
+});

@@ -17,7 +17,7 @@ flowmetrics-fullstack/
 │   │   ├── app/                # App Router pages and layouts
 │   │   ├── components/         # Reusable UI components
 │   │   ├── lib/                # Client utilities & API client
-│   │   └── types/              # TypeScript interfaces & API contracts
+│   │   └── types/              # TypeScript interfaces (API contracts & Pricing)
 │   ├── public/                 # Static assets
 │   ├── .env.example            # Frontend environment variables template
 │   ├── next.config.ts          # Next.js configuration
@@ -27,12 +27,12 @@ flowmetrics-fullstack/
 ├── backend/                    # Express + Node.js API (Server)
 │   ├── src/
 │   │   ├── config/             # Environment & Mongoose database configuration
-│   │   ├── controllers/        # Route handlers (auth, future pricing & blog)
+│   │   ├── controllers/        # Route handlers (auth, pricing, future blog)
 │   │   ├── middleware/         # Error handler, auth, role & rate limiting
-│   │   ├── models/             # Mongoose schemas (User, future Pricing & Blog)
+│   │   ├── models/             # Mongoose schemas (User, PricingPlan, future Blog)
 │   │   ├── routes/             # Express API routes
 │   │   ├── schemas/            # Zod validation schemas
-│   │   ├── scripts/            # Seed and verification scripts
+│   │   ├── scripts/            # Seed and verification test suites
 │   │   ├── services/           # Business logic layer
 │   │   ├── types/              # Backend TypeScript interfaces & contracts
 │   │   ├── utils/              # JWT and cryptography helpers
@@ -94,83 +94,45 @@ Request ──► authenticate (JWT check) ──► requireAdmin (user.role ===
                  HTTP 401                            HTTP 403
 ```
 
-### 2. Password & Token Security
-- **Bcrypt Hashing**: Passwords hashed using `bcryptjs` with salt cost factor 10.
-- **Zero Leakage**: `passwordHash` has `select: false` on the User schema and is stripped by default.
-- **Lean JWTs**: JWT payloads only contain `{ userId, email, role }`. Passwords and hashes are never embedded in tokens.
-- **Timing & Enumeration Resistance**: `POST /api/auth/login` returns a generic `"Invalid email or password"` error regardless of whether the email exists.
-
-### 3. Rate Limiting Protection
-- `POST /api/auth/login` is protected by `authRateLimiter` (`express-rate-limit`).
-- Configurable window (`AUTH_RATE_LIMIT_WINDOW_MS`) and max requests (`AUTH_RATE_LIMIT_MAX`).
-- Exceeding the threshold returns **HTTP 429** (`TOO_MANY_REQUESTS`).
-
-### 4. Admin Seeding Utility
-Initialize the default administrator account for development or deployment:
-
-```bash
-npm run seed:admin
-```
-The script reads `ADMIN_EMAIL` and `ADMIN_PASSWORD` from environment variables, safely hashes the password, and creates the admin record idempotently.
-
 ---
 
-## 🚀 Getting Started
+## 💎 Dynamic Pricing Plans (Milestone 4)
 
-### Prerequisites
-- **Node.js**: v18.0.0 or higher (v24+ supported)
-- **npm**: v9.0.0 or higher
-- **MongoDB Atlas** cluster (or local MongoDB URI)
+Flowmetrics features a flexible Pricing Plans domain with nested feature lists, highlighted flags, and draft/published lifecycle controls.
 
-### 1. Installation
-Install all dependencies across the workspace from the root:
+### Data Model (`PricingPlan`)
 
-```bash
-npm install
-```
-
-### 2. Configure Environment Variables
-Copy `.env.example` files to `.env` in both `frontend` and `backend`:
-
-```bash
-# Frontend
-cp frontend/.env.example frontend/.env
-
-# Backend
-cp backend/.env.example backend/.env
-```
-
-#### Frontend Variables (`frontend/.env`)
-| Variable | Description | Default |
+| Field | Type | Validation / Constraints |
 | :--- | :--- | :--- |
-| `NEXT_PUBLIC_API_URL` | Backend API base URL | `http://localhost:5000/api` |
+| `name` | String | Required, trimmed, max 100 chars |
+| `price` | Number | Required, minimum `0` |
+| `billingCycle` | Enum | `'month' \| 'year'`, required |
+| `description` | String | Optional, trimmed, max 500 chars |
+| `features` | `string[]` | Required array of trimmed, non-empty strings (min 1, max 30) |
+| `highlighted` | Boolean | Strict boolean (`true \| false`), default `false` |
+| `status` | Enum | `'published' \| 'draft'`, default `'published'`, indexed |
+| `createdAt` | Date | Managed timestamp |
+| `updatedAt` | Date | Managed timestamp |
 
-#### Backend Variables (`backend/.env`)
-| Variable | Description | Example |
-| :--- | :--- | :--- |
-| `PORT` | API server listening port | `5000` |
-| `NODE_ENV` | Runtime environment | `development` |
-| `CLIENT_URL` | Frontend origin for CORS | `http://localhost:3000` |
-| `MONGODB_URI` | **Required** MongoDB connection string | `mongodb+srv://...` |
-| `JWT_SECRET` | **Required** Secret key for signing JWTs (min 16 chars) | `super_secret_jwt_key_at_least_16_chars` |
-| `ADMIN_EMAIL` | Administrator account email | `admin@flowmetrics.dev` |
-| `ADMIN_PASSWORD` | **Required** Administrator initial password (min 8 chars) | `AdminSecurePass123!` |
-| `AUTH_RATE_LIMIT_MAX` | Max login attempts per window | `10` |
-| `AUTH_RATE_LIMIT_WINDOW_MS` | Rate limit window in milliseconds | `900000` (15m) |
+### Public vs. Admin Access Rules
 
-### 3. Run Development Servers
-You can run both applications concurrently or independently from the root directory:
-
-```bash
-# Run both frontend and backend concurrently
-npm run dev
-
-# Run only the backend API (http://localhost:5000)
-npm run dev:backend
-
-# Run only the frontend app (http://localhost:3000)
-npm run dev:frontend
 ```
+PUBLIC CLIENTS                              ADMINISTRATORS
+      │                                          │
+      ├── GET /api/plans                         ├── POST /api/plans
+      │   (Returns 'published' only)             ├── PUT /api/plans/:id
+      │                                          ├── DELETE /api/plans/:id
+      └── GET /api/plans/:id                     └── GET /api/plans/admin/all
+          (Returns 'published' only,                 │
+           HTTP 404 for draft/missing)               ▼
+                                            [authenticate + requireAdmin]
+                                            [planWriteRateLimiter]
+                                            [validateBody(Zod)]
+```
+
+- **Route Disambiguation**: The admin route `GET /api/plans/admin/all` is explicitly registered **before** the parameterized `GET /api/plans/:id` route to prevent Express from treating `"admin/all"` as a resource ID.
+- **Strict Public Filtering**: Public GET endpoints enforce `{ status: 'published' }` directly in the database query. Draft pricing plans will **never** leak through public endpoints.
+- **Write Rate Limiting**: All write endpoints (`POST`, `PUT`, `DELETE`) are protected by `planWriteRateLimiter` (`express-rate-limit`) returning **HTTP 429** upon threshold breach.
 
 ---
 
@@ -179,37 +141,63 @@ npm run dev:frontend
 ### Public Endpoints
 - `GET /api/health` - Operational health check reporting system & database connectivity.
 - `POST /api/auth/login` - Rate-limited admin login endpoint.
+- `GET /api/plans` - Returns all published pricing plans (sorted by price ascending).
+- `GET /api/plans/:id` - Returns a single published pricing plan (returns 404 for draft plans).
 
-**Login Request:**
+### Protected Endpoints
+- `GET /api/auth/me` - Requires `authenticate`. Returns the authenticated profile.
+- `GET /api/auth/admin-test` - Requires `authenticate` and `requireAdmin`. Returns 200 for admins, 403 for non-admins.
+- `GET /api/plans/admin/all` - Requires `authenticate` and `requireAdmin`. Returns all pricing plans including drafts.
+- `POST /api/plans` - Requires `authenticate` and `requireAdmin`. Creates a new pricing plan (HTTP 201).
+- `PUT /api/plans/:id` - Requires `authenticate` and `requireAdmin`. Updates an existing pricing plan (HTTP 200).
+- `DELETE /api/plans/:id` - Requires `authenticate` and `requireAdmin`. Deletes a pricing plan (HTTP 200).
+
+#### Example: Create Pricing Plan (`POST /api/plans`)
 ```json
 {
-  "email": "admin@flowmetrics.dev",
-  "password": "AdminSecurePass123!"
+  "name": "Scale Plan",
+  "price": 79,
+  "billingCycle": "month",
+  "description": "For growing engineering organizations",
+  "features": [
+    "Up to 50 team members",
+    "Real-time velocity tracking",
+    "Workload imbalance alerts",
+    "Custom exports & integrations",
+    "Priority support"
+  ],
+  "highlighted": true,
+  "status": "published"
 }
 ```
 
-**Login Response (HTTP 200):**
+#### Example: Response (`HTTP 201 Created`)
 ```json
 {
   "success": true,
   "data": {
-    "user": {
-      "id": "65e6a123...",
-      "name": "System Admin",
-      "email": "admin@flowmetrics.dev",
-      "role": "admin"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "id": "65e6b1234567890123456789",
+    "name": "Scale Plan",
+    "price": 79,
+    "billingCycle": "month",
+    "description": "For growing engineering organizations",
+    "features": [
+      "Up to 50 team members",
+      "Real-time velocity tracking",
+      "Workload imbalance alerts",
+      "Custom exports & integrations",
+      "Priority support"
+    ],
+    "highlighted": true,
+    "status": "published",
+    "createdAt": "2026-09-04T18:15:00.000Z",
+    "updatedAt": "2026-09-04T18:15:00.000Z"
   },
   "meta": {
-    "timestamp": "2026-09-04T18:00:00.000Z"
+    "timestamp": "2026-09-04T18:15:00.000Z"
   }
 }
 ```
-
-### Protected Endpoints
-- `GET /api/auth/me` - Requires `authenticate` header (`Authorization: Bearer <token>`). Returns the authenticated profile.
-- `GET /api/auth/admin-test` - Requires `authenticate` and `requireAdmin`. Returns 200 for admins, 403 for non-admins.
 
 ---
 
@@ -226,6 +214,7 @@ npm run dev:frontend
 | `npm run typecheck` | Validates TypeScript types across both frontend and backend |
 | `npm run seed:admin` | Seeds initial administrator account using environment credentials |
 | `npm run test:auth` | Runs the automated authentication & authorization test suite |
+| `npm run test:pricing` | Runs the 17-point Pricing Plans CRUD automated verification suite |
 | `npm run lint` | Runs ESLint across all workspaces |
 
 ---
@@ -235,7 +224,7 @@ npm run dev:frontend
 - [x] **Milestone 1**: Repository architecture, workspace setup, TypeScript config, health check endpoint, minimal Next.js foundation, shared conventions.
 - [x] **Milestone 2**: Production MongoDB foundation (Mongoose connection pooling, strict Zod URI validation, lifecycle handling, enhanced health probe).
 - [x] **Milestone 3**: Secure admin authentication & role-based authorization (bcryptjs, JWT, separate `authenticate` & `requireAdmin` middlewares, login rate limiting, admin seed script).
-- [ ] **Milestone 4**: Dynamic Pricing Plans CRUD & nested feature list, public read-only vs admin endpoints with rate limiting.
+- [x] **Milestone 4**: Complete Pricing Plans CRUD (Mongoose modeling, nested feature array, highlighted boolean, draft/published status filtering, public read endpoints, admin write endpoints with rate limiting).
 - [ ] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration.
 - [ ] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
 - [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
