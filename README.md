@@ -222,6 +222,31 @@ router.get('/:slug', blogController.getPostBySlug);
 
 ---
 
+## 🚀 Marketing Website & Visual Experience (Milestone 6)
+
+Flowmetrics features a polished, responsive B2B SaaS marketing website built with Next.js App Router, Tailwind CSS, Motion, and Recharts.
+
+### 1. Visual Style & Design System
+- **Dark-First Palette**: Deep navy background (`#070B14`), card surface (`#0D1422`), elevated surface (`#111A2E`), crisp border (`#1A2438`), and blue (`#3B82F6`) / teal (`#14B8A6`) accents.
+- **Restrained Motion**: Subtle section entrances, hover micro-interactions, and tab transitions without distracting effects.
+- **Analytics Visual Language**: High-signal dashboard panels, crisp typography, and status indicators.
+
+### 2. Homepage Sections (10 Core Modules)
+1. **Navbar**: Responsive sticky navigation with logo mark, section anchors (`#features`, `#analytics`, `#pricing`, `#blog`), "Sign in" admin route, and mobile drawer.
+2. **Hero**: Headline *"Know where your team's work really goes."*, supporting copy on distributed team visibility, dual CTAs, and an interactive React component hero dashboard.
+3. **Trust Strip**: Restrained fictional customer logos (Northstar, Vertex, Arcflow, Luma, Stackline) with clean geometric marks.
+4. **Features Spotlight & Modules**:
+   - Large Spotlight: *"Turn work data into decisions."* with capacity and health breakdown.
+   - 6 Feature Modules: Automated Time Tracking, Workload Intelligence, Project Velocity Insights, Executive Team Reporting, Milestone & Goal Alignment, Contextual Smart Alerts.
+5. **Analytics Product Showcase**: *"A clearer picture of work."* with interactive tabs (Sprint Velocity Trends vs Workload Time Breakdown) powered by Recharts.
+6. **Dynamic Pricing Plans**: Connects to `GET /api/plans` with dynamic `highlighted === true` detection, loading skeletons, error states, and empty states.
+7. **Testimonials**: 3 fictional engineering leader quotes with abstract geometric avatars and concrete telemetry metrics.
+8. **Dynamic Blog Feed**: Connects to `GET /api/blog`, displaying 3–6 articles with prioritized featured posts, metadata, and routing to `/blog/[slug]`.
+9. **Final CTA**: *"Give your team a clearer way to work."* with "Start free" and "Talk to sales" actions.
+10. **Footer**: Brand links, solutions, resources, company information, system status pill, and copyright.
+
+---
+
 ## 🛠️ Workspace Scripts
 
 | Command | Description |
@@ -234,6 +259,7 @@ router.get('/:slug', blogController.getPostBySlug);
 | `npm run build:backend` | Compiles backend TypeScript to `./backend/dist` |
 | `npm run typecheck` | Validates TypeScript types across both frontend and backend |
 | `npm run seed:admin` | Seeds initial administrator account using environment credentials |
+| `npm run seed:content` | Optional manual script to populate sample published Pricing Plans & Blog Posts |
 | `npm run test:auth` | Runs the automated authentication & authorization test suite |
 | `npm run test:pricing` | Runs the 17-point Pricing Plans CRUD automated verification suite |
 | `npm run test:blog` | Runs the 24-point Blog Domain & Publishing automated verification suite |
@@ -248,6 +274,7 @@ router.get('/:slug', blogController.getPostBySlug);
 - [x] **Milestone 3**: Secure admin authentication & role-based authorization (bcryptjs, JWT, separate `authenticate` & `requireAdmin` middlewares, login rate limiting, admin seed script).
 - [x] **Milestone 4**: Complete Pricing Plans CRUD (Mongoose modeling, nested feature array, highlighted boolean, draft/published status filtering, public read endpoints, admin write endpoints with rate limiting).
 - [x] **Milestone 5**: Blog Posts CRUD, draft/published protection, slug routes, TipTap rich text integration, double sanitization.
-- [ ] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
+- [x] **Milestone 6**: Full SaaS Landing page UI (Hero with analytics preview, Features hierarchy, Dynamic Pricing, Testimonials, Dynamic Blog, Footer/CTA).
 - [ ] **Milestone 7**: Admin dashboard portal (Pricing management, Blog management with TipTap editor).
 - [ ] **Milestone 8**: Production deployment setup (Vercel + Render), and final polish.
+

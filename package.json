@@ -16,6 +16,7 @@
     "build:backend": "npm run build --workspace=backend",
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "seed:admin": "npm run seed:admin --workspace=backend",
+    "seed:content": "npm run seed:content --workspace=backend",
     "test:auth": "npm run test:auth --workspace=backend",
     "test:pricing": "npm run test:pricing --workspace=backend",
     "test:blog": "npm run test:blog --workspace=backend",

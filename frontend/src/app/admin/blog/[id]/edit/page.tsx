@@ -4,6 +4,9 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TipTapEditor } from '@/components/admin/TipTapEditor';
+import { authApiClient } from '@/lib/api';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { BlogPost } from '@/types/blog';
 import {
   ArrowLeft,
   Save,
@@ -26,6 +29,8 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
   const router = useRouter();
   const id = resolvedParams.id;
 
+  const { isAuthorized, isChecking } = useAdminAuth();
+
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
@@ -43,17 +48,12 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
 
   useEffect(() => {
-    const fetchPost = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`http://localhost:5000/api/blog/admin/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-          },
-        });
-        const data = await res.json();
-        if (data.success && data.data) {
-          const p = data.data;
+    if (!isAuthorized) return;
+    let ignore = false;
+
+    authApiClient<BlogPost>(`/blog/admin/${id}`)
+      .then((p) => {
+        if (!ignore && p) {
           setTitle(p.title);
           setSlug(p.slug);
           setExcerpt(p.excerpt);
@@ -63,18 +63,20 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
           setThumbnail(p.thumbnail || '');
           setFeatured(Boolean(p.featured));
           setStatus(p.status);
-        } else {
-          setError(data.error?.message || 'Failed to load post');
+          setLoading(false);
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error loading post');
-      } finally {
-        setLoading(false);
-      }
-    };
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'Error loading post');
+          setLoading(false);
+        }
+      });
 
-    fetchPost();
-  }, [id]);
+    return () => {
+      ignore = true;
+    };
+  }, [id, isAuthorized]);
 
   const handleUpdate = async () => {
     setSaving(true);
@@ -94,19 +96,10 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
         status,
       };
 
-      const res = await fetch(`http://localhost:5000/api/blog/${id}`, {
+      await authApiClient<BlogPost>(`/blog/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-        },
         body: JSON.stringify(payload),
       });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message || 'Failed to update post');
-      }
 
       setSuccessMsg('Article updated successfully!');
     } catch (err) {
@@ -123,17 +116,10 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
 
     setDeleting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/blog/${id}`, {
+      await authApiClient<void>(`/blog/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-        },
       });
-      if (res.ok) {
-        router.push('/admin/blog');
-      } else {
-        alert('Failed to delete post');
-      }
+      router.push('/admin/blog');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error deleting post');
     } finally {
@@ -141,7 +127,7 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
     }
   };
 
-  if (loading) {
+  if (isChecking || loading) {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex items-center justify-center p-10">
         <div className="text-center text-xs text-slate-400">
@@ -150,6 +136,10 @@ export default function EditBlogPostPage({ params }: EditPageProps) {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthorized) {
+    return null;
   }
 
   return (

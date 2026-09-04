@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TipTapEditor } from '@/components/admin/TipTapEditor';
+import { authApiClient } from '@/lib/api';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { BlogPost } from '@/types/blog';
 import {
   ArrowLeft,
   Save,
@@ -15,10 +18,12 @@ import {
   Clock,
   Tag,
   Star,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function NewBlogPostPage() {
   const router = useRouter();
+  const { isAuthorized, isChecking } = useAdminAuth();
 
   const [title, setTitle] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
@@ -64,24 +69,10 @@ export default function NewBlogPostPage() {
         status: finalStatus,
       };
 
-      const res = await fetch('http://localhost:5000/api/blog', {
+      await authApiClient<BlogPost>('/blog', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-        },
         body: JSON.stringify(payload),
       });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        const message = data.error?.message || `Failed to create blog post (${res.status})`;
-        const details = Array.isArray(data.error?.details)
-          ? data.error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')
-          : '';
-        throw new Error(details ? `${message} - ${details}` : message);
-      }
 
       setSuccessMsg(`Blog post successfully created as ${finalStatus}!`);
       setTimeout(() => {
@@ -93,6 +84,21 @@ export default function NewBlogPostPage() {
       setSaving(false);
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex items-center justify-center p-10">
+        <div className="text-center text-xs text-slate-400">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-400" />
+          <span>Verifying administrative session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 p-6 md:p-10">

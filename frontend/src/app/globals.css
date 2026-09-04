@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b0f19;
+  --background: #070b14;
   --foreground: #f8fafc;
-  --card-bg: #111827;
-  --card-border: #1f2937;
+  --surface: #0d1422;
+  --surface-elevated: #111a2e;
+  --card-bg: #0d1422;
+  --card-border: #1a2438;
+  --border-hover: #26354f;
   --accent-blue: #3b82f6;
   --accent-teal: #14b8a6;
+  --muted: #94a3b8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-card: var(--card-bg);
+  --color-border: var(--card-border);
+  --color-border-hover: var(--border-hover);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-teal: var(--accent-teal);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
 }
@@ -21,6 +33,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -31,12 +44,25 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b0f19;
+  background: #070b14;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
+  background: #1a2438;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: #2a3854;
 }
+
+/* TipTap Editor Prose Styling */
+.ProseMirror:focus {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #475569;
+  pointer-events: none;
+  height: 0;
+}
+

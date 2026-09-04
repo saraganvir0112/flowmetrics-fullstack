@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BlogPost } from '@/types/blog';
+import { authApiClient } from '@/lib/api';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   FileText,
   Plus,
@@ -14,44 +16,25 @@ import {
   ArrowLeft,
   RefreshCw,
   AlertCircle,
-  Clock,
   Tag,
+  LogOut,
 } from 'lucide-react';
 
 export default function AdminBlogPage() {
+  const { isAuthorized, isChecking, logout } = useAdminAuth();
+
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const fetchAdminPosts = async () => {
+  const refreshAdminPosts = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:5000/api/blog/admin/all', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-        },
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        // Fallback for public preview or prompt login
-        const publicRes = await fetch('http://localhost:5000/api/blog');
-        const publicData = await publicRes.json();
-        if (publicData.success) {
-          setPosts(publicData.data || []);
-        } else {
-          setPosts([]);
-        }
-      } else {
-        const data = await res.json();
-        if (data.success) {
-          setPosts(data.data || []);
-        } else {
-          setPosts([]);
-        }
-      }
+      const data = await authApiClient<BlogPost[]>('/blog/admin/all');
+      setPosts(data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch blog posts');
       setPosts([]);
@@ -61,8 +44,28 @@ export default function AdminBlogPage() {
   };
 
   useEffect(() => {
-    fetchAdminPosts();
-  }, []);
+    if (!isAuthorized) return;
+    let ignore = false;
+
+    authApiClient<BlogPost[]>('/blog/admin/all')
+      .then((data) => {
+        if (!ignore) {
+          setPosts(data || []);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch blog posts');
+          setPosts([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthorized]);
 
   const filteredPosts = posts.filter((post) => {
     const matchesStatus = filterStatus === 'all' || post.status === filterStatus;
@@ -79,21 +82,29 @@ export default function AdminBlogPage() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/blog/${id}`, {
+      await authApiClient<void>(`/blog/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
-        },
       });
-      if (res.ok) {
-        setPosts((prev) => prev.filter((p) => p.id !== id));
-      } else {
-        alert('Failed to delete post. Ensure you are logged in as admin.');
-      }
+      setPosts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error deleting post');
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex items-center justify-center p-10">
+        <div className="text-center text-xs text-slate-400">
+          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-400" />
+          <span>Verifying administrative session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 p-6 md:p-10">
@@ -119,7 +130,7 @@ export default function AdminBlogPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchAdminPosts}
+              onClick={() => refreshAdminPosts()}
               className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               title="Refresh"
             >
@@ -132,6 +143,14 @@ export default function AdminBlogPage() {
               <Plus className="w-4 h-4" />
               <span>New Article</span>
             </Link>
+            <button
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-800/60 transition-colors text-xs cursor-pointer"
+              title="Sign out of Admin Portal"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign out</span>
+            </button>
           </div>
         </div>
 
